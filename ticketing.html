@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laptop Request Form</title>
+   
+<body>
+    <div class="container">
+        <h1>Laptop Request Form</h1>
+        <form id="requestForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+
+            <label for="department">Department:</label>
+            <input type="text" id="department" name="department" required>
+
+            <label for="reason">Reason for Request:</label>
+            <textarea id="reason" name="reason" required></textarea>
+
+            <button type="submit">Submit Request</button>
+        </form>
+        <div id="response"></div>
+    </div>
+
+    <div class="container" id="approvalSection" style="display: none;">
+        <h2>Approval Section</h2>
+        <form id="approvalForm">
+            <label for="approvalLevel">Approval Level:</label>
+            <select id="approvalLevel" name="approvalLevel" required>
+                <option value="manager" selected>Manager</option>
+                <option value="it">IT Department</option>
+            </select>
+
+            <label for="approvalStatus">Approval Status:</label>
+            <select id="approvalStatus" name="approvalStatus" required>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+            </select>
+
+            <button type="submit">Submit Approval</button>
+        </form>
+    </div>
+    <script>
+        let requestData = null;
+
+        document.getElementById('requestForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            requestData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                department: document.getElementById('department').value,
+                reason: document.getElementById('reason').value,
+                status: 'pending',
+                approvals: []
+            };
+
+            fetch('/requests', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                requestData.id = data.id;
+                document.getElementById('response').innerHTML = `
+                    <h2>Request Submitted</h2>
+                    <p><strong>Name:</strong> ${requestData.name}</p>
+                    <p><strong>Email:</strong> ${requestData.email}</p>
+                    <p><strong>Department:</strong> ${requestData.department}</p>
+                    <p><strong>Reason:</strong> ${requestData.reason}</p>
+                `;
+
+                document.getElementById('approvalSection').style.display = 'block';
+            })
+            .catch(error => console.error('Error:', error));
+        });
+
+        document.getElementById('approvalForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const approvalLevel = document.getElementById('approvalLevel').value;
+            const approvalStatus = document.getElementById('approvalStatus').value;
+
+            const approval = {
+                level: approvalLevel,
+                status: approvalStatus
+            };
+
+            requestData.approvals.push(approval);
+
+            if (approvalLevel === 'manager' && approvalStatus === 'approved') {
+                document.getElementById('approvalLevel').value = 'it';
+                document.getElementById('response').innerHTML += `
+                    <p><strong>Manager Approval Status:</strong> ${approval.status}</p>
+                    <p>Moving to IT Department for final approval...</p>
+                `;
+            } else if (approvalLevel === 'it' && approvalStatus === 'approved') {
+                requestData.status = 'approved';
+                document.getElementById('response').innerHTML += `
+                    <p><strong>IT Department Approval Status:</strong> ${approval.status}</p>
+                    <p><strong>Final Status:</strong> Approved</p>
+                `;
+                document.getElementById('approvalSection').style.display = 'none';
+                updateRequestStatus();
+            } else {
+                requestData.status = 'rejected';
+                document.getElementById('response').innerHTML += `
+                    <p><strong>${approvalLevel === 'manager' ? 'Manager' : 'IT Department'} Approval Status:</strong> ${approval.status}</p>
+                    <p><strong>Final Status:</strong> Rejected</p>
+                `;
+                document.getElementById('approvalSection').style.display = 'none';
+                updateRequestStatus();
+            }
+        });
+
+        function updateRequestStatus() {
+            fetch(`/requests/${requestData.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Request updated:', data);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
